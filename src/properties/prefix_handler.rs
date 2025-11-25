@@ -28,19 +28,17 @@ macro_rules! define_prefixes {
               // Scan through all existing properties of this type in dest
               // Determine which prefixes to add and which to remove from existing properties
               for i in 0..dest.len() {
-                if let Property::$name(ref cur, existing_prefixes) = dest[i] {
+                if let Property::$name(ref cur, ref mut existing_prefixes) = dest[i] {
                   if val == cur {
                     // Same value - merge the prefixes into existing property
-                    if let Property::$name(_, ref mut existing_prefixes) = dest[i] {
-                      *existing_prefixes |= new_prefixes;
-                      *existing_prefixes = context.targets.prefixes(*existing_prefixes, Feature::$name);
-                    }
+                    *existing_prefixes |= new_prefixes;
+                    *existing_prefixes = context.targets.prefixes(*existing_prefixes, Feature::$name);
                     // Update the tracked index to the merged property
                     self.$name = Some(i);
-                    return true
+                    return true;
                   } else {
                     // Different value - check for overlapping prefixes
-                    let overlap = existing_prefixes & new_prefixes;
+                    let overlap = *existing_prefixes & new_prefixes;
                     if !overlap.is_empty() {
                       // If the input prefix is None (unprefixed), don't override existing prefixed properties
                       // Otherwise, remove the overlapping prefixes from existing and keep them in new
@@ -49,9 +47,7 @@ macro_rules! define_prefixes {
                         new_prefixes = new_prefixes.difference(overlap);
                       } else {
                         // Explicit vendor prefix overrides previous declarations
-                        if let Property::$name(_, ref mut existing_prefixes) = dest[i] {
-                          *existing_prefixes = existing_prefixes.difference(overlap);
-                        }
+                        *existing_prefixes = existing_prefixes.difference(overlap);
                       }
                     }
                   }
@@ -60,7 +56,7 @@ macro_rules! define_prefixes {
 
               // If no prefixes remain after removing overlaps, skip this property
               if new_prefixes.is_empty() {
-                return true
+                return true;
               }
 
               // Store the index of the new property
