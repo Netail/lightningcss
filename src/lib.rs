@@ -17195,6 +17195,99 @@ mod tests {
         ..Browsers::default()
       },
     );
+
+    // Test vendor prefix conflict resolution - Example 1
+    // When appearance is specified later than a custom value for a vendor prefixed equivalent,
+    // it should not override the explicit vendor prefix
+    prefix_test(
+      r#"
+      .foo {
+        -webkit-appearance: none;
+        appearance: textfield;
+      }
+    "#,
+      indoc! {r#"
+      .foo {
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+    "#},
+      Browsers {
+        chrome: Some(60 << 16),
+        firefox: Some(60 << 16),
+        ..Browsers::default()
+      },
+    );
+
+    // Test vendor prefix conflict resolution - Example 2
+    // When a vendor prefixed property is specified later than the default one,
+    // it should override only that specific prefix
+    prefix_test(
+      r#"
+      .bar {
+        appearance: textfield;
+        -webkit-appearance: none;
+      }
+    "#,
+      indoc! {r#"
+      .bar {
+        -moz-appearance: textfield;
+        appearance: textfield;
+        -webkit-appearance: none;
+      }
+    "#},
+      Browsers {
+        chrome: Some(60 << 16),
+        firefox: Some(60 << 16),
+        ..Browsers::default()
+      },
+    );
+
+    // Test vendor prefix conflict with multiple explicit prefixes
+    prefix_test(
+      r#"
+      .test {
+        -webkit-appearance: none;
+        -moz-appearance: button;
+        appearance: textfield;
+      }
+    "#,
+      indoc! {r#"
+      .test {
+        -webkit-appearance: none;
+        -moz-appearance: button;
+        appearance: textfield;
+      }
+    "#},
+      Browsers {
+        chrome: Some(60 << 16),
+        firefox: Some(60 << 16),
+        ..Browsers::default()
+      },
+    );
+
+    // Test that same values still merge properly
+    prefix_test(
+      r#"
+      .merge {
+        -webkit-appearance: none;
+        appearance: none;
+      }
+    "#,
+      indoc! {r#"
+      .merge {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+      }
+    "#},
+      Browsers {
+        chrome: Some(60 << 16),
+        firefox: Some(60 << 16),
+        ..Browsers::default()
+      },
+    );
   }
 
   #[test]
