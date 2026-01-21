@@ -22,27 +22,46 @@ macro_rules! define_prefixes {
         match property {
           $(
             Property::$name(val, prefix) => {
-              if let Some(i) = self.$name {
-                if let Some(decl) = dest.get_mut(i) {
-                  if let Property::$name(cur, prefixes) = decl {
-                    // If the value is the same, update the prefix.
-                    // If the prefix is the same, then update the value.
-                    if val == cur || prefixes.contains(*prefix) {
-                      *cur = val.clone();
-                      *prefixes |= *prefix;
-                      *prefixes = context.targets.prefixes(*prefixes, Feature::$name);
-                      return true
+              // Get the expanded prefixes based on targets.
+              let mut new_prefixes = context.targets.prefixes(*prefix, Feature::$name);
+
+              // Scan through all existing properties of this type in dest
+              // Determine which prefixes to add and which to remove from existing properties
+              for i in 0..dest.len() {
+                if let Property::$name(ref cur, ref mut existing_prefixes) = dest[i] {
+                  if val == cur {
+                    // Same value - merge the prefixes into existing property
+                    *existing_prefixes |= new_prefixes;
+                    *existing_prefixes = context.targets.prefixes(*existing_prefixes, Feature::$name);
+                    // Update the tracked index to the merged property
+                    self.$name = Some(i);
+                    return true;
+                  } else {
+                    // Different value - check for overlapping prefixes
+                    let overlap = *existing_prefixes & new_prefixes;
+                    if !overlap.is_empty() {
+                      // If the input prefix is None (unprefixed), don't override existing prefixed properties
+                      // Otherwise, remove the overlapping prefixes from existing and keep them in new
+                      if *prefix == VendorPrefix::None {
+                        // Unprefixed property should not override explicit vendor prefixes
+                        new_prefixes = new_prefixes.difference(overlap);
+                      } else {
+                        // Explicit vendor prefix overrides previous declarations
+                        *existing_prefixes = existing_prefixes.difference(overlap);
+                      }
                     }
                   }
                 }
               }
 
-              // Update the prefixes based on the targets.
-              let prefixes = context.targets.prefixes(*prefix, Feature::$name);
+              // If no prefixes remain after removing overlaps, skip this property
+              if new_prefixes.is_empty() {
+                return true;
+              }
 
-              // Store the index of the property, so we can update it later.
+              // Store the index of the new property
               self.$name = Some(dest.len());
-              dest.push(Property::$name(val.clone(), prefixes))
+              dest.push(Property::$name(val.clone(), new_prefixes))
             }
           )+
           _ => return false
